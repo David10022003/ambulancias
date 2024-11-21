@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Monitoreo de Ambulancias</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="connection-status"></div>
+    <div class="container">
+        <header class="header">
+            <h1>Sistema de Monitoreo de Ambulancias</h1>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon ambulance">
+                    🚑
+                </div>
+                <div class="stat-info">
+                    <h3>Ambulancias Monitoreadas</h3>
+                    <p id="ambulancias-activas">0</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div id="semaforo-4" class="traffic-light">
+                    <div class="light red active"></div>
+                    <div class="light yellow"></div>
+                    <div class="light green"></div>
+                </div>
+                <div class="stat-info">
+                    <h3>Semáforos Monitoreados</h3>
+                    <p id="semaforos-activos">0</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid-container">
+            <div class="map-container">
+                <h2 class="section-title">Detalle de Semáforos</h2>
+                <div id="semaforos-grid" class="traffic-lights-grid">
+                    <!-- Semáforos se generarán dinámicamente -->
+                </div>
+            </div>
+
+            <div class="map-container">
+                <h2 class="section-title">Detalle de Ambulancias</h2>
+                <div id="ambulancias-grid" class="ambulancias-grid">
+                    <!-- Ambulancias se generarán dinámicamente -->
+                </div>
+            </div>
+        </div>
+
+            <div class="real-time-status">
+                <h2 class="section-title">Estado en Tiempo Real</h2>
+                <div id="status-updates" class="status-list">
+                    <!-- Actualizaciones en tiempo real se generarán 					dinámicamente -->
+                </div>
+            </div>
+
+        <div class="data-table-container">
+            <h2 class="section-title">Registro de Eventos</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Ambulancia</th>
+                        <th>Semáforo</th>
+                        <th>Timestamp</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="events-body">
+                    <!-- Eventos se generarán dinámicamente -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
