@@ -3,9 +3,23 @@ const sql = require('mssql');
 const cors = require('cors');
 const WebSocket = require('ws');
 const http = require('http');
+const path = require('path');
 
 const app = express();
 app.use(cors());
+
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Asegurarse de que todas las rutas no-API devuelvan el index.html
+app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path === '/health') {
+        next();
+    } else {
+        res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    }
+});
+
+
 
 // Configuración de base de datos
 const dbConfig = {

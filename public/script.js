@@ -1,5 +1,5 @@
 // Configuración
-const WS_URL = 'ws://localhost:3001';
+const WS_URL = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
 
 // Estado global
 let lastUpdateTime = null;
