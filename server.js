@@ -19,8 +19,6 @@ app.get('*', (req, res, next) => {
     }
 });
 
-
-
 // Configuración de base de datos
 const dbConfig = {
     user: process.env.DB_USER || 'ambulancias',
@@ -46,6 +44,7 @@ class EmergencyDataManager {
         this.pool = null;
         this.lastCheckTime = null;
         this.clients = new Set();
+        this.pollingInterval = 10 * 60 * 1000; // 10 minutos en milisegundos
     }
 
     async initializePool() {
@@ -107,49 +106,68 @@ class EmergencyDataManager {
         }
     }
 
-    async startDataPolling(wss) {
+    async sendDataToClient(ws) {
         try {
-            const emergencyData = await this.fetchEmergencyData();
-            
-            if (emergencyData.length > 0) {
-                // Enviar a todos los clientes WebSocket
-                this.clients.forEach(client => {
-                    if (client.readyState === WebSocket.OPEN) {
-                        client.send(JSON.stringify(emergencyData));
-                    }
-                });
+            const data = await this.fetchEmergencyData();
+            if (data.length > 0 && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(data));
+                console.log(`Datos enviados al cliente: ${data.length} registros`);
             }
         } catch (error) {
-            console.error('Error en polling:', error);
+            console.error('Error al enviar datos al cliente:', error);
+        }
+    }
+
+    async broadcastToAll() {
+        try {
+            const data = await this.fetchEmergencyData();
+            if (data.length > 0) {
+                this.clients.forEach(client => {
+                    if (client.readyState === WebSocket.OPEN) {
+                        client.send(JSON.stringify(data));
+                    }
+                });
+                console.log(`Datos transmitidos a ${this.clients.size} clientes`);
+            }
+        } catch (error) {
+            console.error('Error en broadcast:', error);
         }
     }
 
     setupWebSocketServer(server) {
-    const wss = new WebSocket.Server({ server });
+        const wss = new WebSocket.Server({ server });
 
-    wss.on('connection', (ws) => {
-        console.log('Cliente WebSocket conectado');
-        this.clients.add(ws);
+        wss.on('connection', (ws) => {
+            console.log('Cliente WebSocket conectado');
+            this.clients.add(ws);
 
-        // Enviar datos inmediatamente al conectar
-        this.fetchEmergencyData().then(data => {
-            if (data.length > 0) {
-                ws.send(JSON.stringify(data));
-                console.log('Enviando datos iniciales:', data.length, 'registros');
-            }
+            // Enviar datos inmediatamente al conectar
+            this.sendDataToClient(ws);
+
+            // Configurar polling individual para este cliente
+            const pollInterval = setInterval(() => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    this.sendDataToClient(ws);
+                } else {
+                    clearInterval(pollInterval);
+                }
+            }, this.pollingInterval);
+
+            ws.on('close', () => {
+                console.log('Cliente WebSocket desconectado');
+                this.clients.delete(ws);
+                clearInterval(pollInterval);
+            });
+
+            ws.on('error', (error) => {
+                console.error('Error en conexión WebSocket:', error);
+                clearInterval(pollInterval);
+                this.clients.delete(ws);
+            });
         });
 
-        ws.on('close', () => {
-            console.log('Cliente WebSocket desconectado');
-            this.clients.delete(ws);
-        });
-    });
-
-    // Polling cada 10 minutos
-    setInterval(() => this.startDataPolling(wss), 10 * 60 * 1000);
-
-    return wss;
-}
+        return wss;
+    }
 }
 
 // Inicialización del servidor
