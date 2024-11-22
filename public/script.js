@@ -1,5 +1,8 @@
 // Configuración
-const WS_URL = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
+const WS_URL = window.location.protocol === 'https:' 
+    ? `wss://${window.location.host}/ws` 
+    : `ws://${window.location.host}/ws`;
+
 
 // Estado global
 let lastUpdateTime = null;
@@ -120,51 +123,56 @@ function updateStatusFeed(newData) {
     }
 }
 
-// Función para conexión WebSocket
+
 function conectarWebSocket() {
     const socket = new WebSocket(WS_URL);
 
     socket.onopen = function(e) {
         console.log('Conexión WebSocket establecida');
-        // Opcional: añadir indicador visual de conexión
+        console.log('WebSocket state:', socket.readyState);
+        
         document.getElementById('connection-status').textContent = 'Conectado ✅';
+        
+        // Opcional: Enviar un mensaje de conexión inicial si es necesario
+        // socket.send(JSON.stringify({ type: 'connect' }));
     };
 
     socket.onmessage = function(event) {
         try {
             const data = JSON.parse(event.data);
- 		 console.log('Datos recibidos:', data);
+            console.log('Datos recibidos:', data);
             
-            currentData = data;
+            if (data && data.length > 0) {
+                currentData = data;
 
-            data.forEach(item => {
-                ambulancesMap[item.ambulancia_placa] = `Ambulancia ${item.ambulancia_placa}`;
-                trafficLightsMap[item.semaforo_id] = `Semáforo ${item.semaforo_id}`;
-            });
-            
-            updateStats(data);
-            updateTable(data);
-            updateStatusFeed(data);
-            updateTrafficLights(data);
-            updateAmbulances(data);
+                data.forEach(item => {
+                    ambulancesMap[item.ambulancia_placa] = `Ambulancia ${item.ambulancia_placa}`;
+                    trafficLightsMap[item.semaforo_id] = `Semáforo ${item.semaforo_id}`;
+                });
+                
+                updateStats(data);
+                updateTable(data);
+                updateStatusFeed(data);
+                updateTrafficLights(data);
+                updateAmbulances(data);
+            }
         } catch (error) {
             console.error('Error procesando datos:', error);
         }
     };
 
     socket.onclose = function(event) {
-        if (event.wasClean) {
-            console.log(`Conexión cerrada limpiamente, código=${event.code} razón=${event.reason}`);
-        } else {
-            console.log('Conexión WebSocket interrumpida');
-            // Intentar reconectar después de un tiempo
-            document.getElementById('connection-status').textContent = 'Desconectado ❌';
-            setTimeout(conectarWebSocket, 5000);
-        }
+        console.log('WebSocket closed. Attempting to reconnect...');
+        document.getElementById('connection-status').textContent = 'Desconectado ❌';
+        
+        // Reconexión exponencial backoff
+        setTimeout(() => {
+            conectarWebSocket();
+        }, 5000);
     };
 
     socket.onerror = function(error) {
-        console.error(`Error WebSocket: ${error.message}`);
+        console.error(`WebSocket Error: ${error.message}`);
         document.getElementById('connection-status').textContent = 'Error de conexión ❌';
     };
 }

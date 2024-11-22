@@ -7,7 +7,6 @@ const path = require('path');
 
 const app = express();
 app.use(cors());
-
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Ensure all non-API routes return index.html
@@ -33,9 +32,9 @@ const dbConfig = {
         pool: {
             max: 10,
             min: 2,
-            idleTimeoutMillis: 30000
-        }
-    }
+            idleTimeoutMillis: 30000,
+        },
+    },
 };
 
 class EmergencyDataManager {
@@ -62,8 +61,8 @@ class EmergencyDataManager {
         }
 
         try {
-            // Fetch events from the last 30 minutes, or all events if this is the first fetch
-            const query = this.lastFetchTimestamp ? `
+            const query = this.lastFetchTimestamp
+                ? `
                 SELECT 
                     ae.id, 
                     a.placa AS ambulancia_placa, 
@@ -73,7 +72,8 @@ class EmergencyDataManager {
                 INNER JOIN ambulancias a ON ae.ambulancia_id = a.id
                 WHERE ae.timestamp > @lastFetchTimestamp
                 ORDER BY ae.timestamp DESC
-            ` : `
+            `
+                : `
                 SELECT TOP 100
                     ae.id, 
                     a.placa AS ambulancia_placa, 
@@ -90,8 +90,7 @@ class EmergencyDataManager {
             }
 
             const result = await request.query(query);
-            
-            // Update last fetch timestamp to the most recent event's timestamp
+
             if (result.recordset.length > 0) {
                 this.lastFetchTimestamp = result.recordset[0].timestamp;
             }
@@ -107,8 +106,9 @@ class EmergencyDataManager {
     setupWebSocketServer(server) {
         const wss = new WebSocket.Server({ server });
 
-        wss.on('connection', async (ws) => {
+        wss.on('connection', async (ws, req) => {
             console.log('WebSocket client connected');
+            console.log('Client IP:', req.socket.remoteAddress);
 
             const sendDataToClient = async () => {
                 try {
@@ -122,11 +122,15 @@ class EmergencyDataManager {
                 }
             };
 
-            // Send data immediately on connection
+            // Send data immediately
             await sendDataToClient();
 
-            // Send data every 5 seconds
-            const intervalId = setInterval(sendDataToClient, 5000);
+            // Send data every 5 seconds if the client is connected
+            const intervalId = setInterval(() => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    sendDataToClient();
+                }
+            }, 5000);
 
             ws.on('close', () => {
                 clearInterval(intervalId);
@@ -136,6 +140,17 @@ class EmergencyDataManager {
             ws.on('error', (error) => {
                 clearInterval(intervalId);
                 console.error('WebSocket connection error:', error);
+            });
+
+            // Ping to keep the connection alive
+            const pingInterval = setInterval(() => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.ping();
+                }
+            }, 30000);
+
+            ws.on('close', () => {
+                clearInterval(pingInterval);
             });
         });
 
@@ -160,12 +175,19 @@ async function startServer() {
         }
     });
 
+    app.get('/ws-status', (req, res) => {
+        res.json({
+            status: 'active',
+            clients: wss.clients.size,
+        });
+    });
+
     // Server health check endpoint
     app.get('/health', (req, res) => {
         res.json({
             status: 'healthy',
             timestamp: new Date().toISOString(),
-            clients: wss.clients.size
+            clients: wss.clients.size,
         });
     });
 
