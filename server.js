@@ -81,33 +81,43 @@ class EmergencyDataManager {
     }
 
     setupWebSocketServer(server) {
-        const wss = new WebSocket.Server({ server });
+    const wss = new WebSocket.Server({ server });
 
-        wss.on('connection', async (ws) => {
-            console.log('Cliente WebSocket conectado');
+    wss.on('connection', async (ws) => {
+        console.log('Cliente WebSocket conectado');
 
+        // Función para enviar datos
+        const sendDataToClient = async () => {
             try {
-                // Obtener y enviar datos inmediatamente al conectar
                 const data = await this.fetchEmergencyData();
                 if (data.length > 0) {
                     ws.send(JSON.stringify(data));
                     console.log(`Datos enviados al cliente: ${data.length} registros`);
                 }
             } catch (error) {
-                console.error('Error al enviar datos iniciales:', error);
+                console.error('Error al enviar datos:', error);
             }
+        };
 
-            ws.on('close', () => {
-                console.log('Cliente WebSocket desconectado');
-            });
+        // Enviar datos inmediatamente al conectar
+        await sendDataToClient();
 
-            ws.on('error', (error) => {
-                console.error('Error en conexión WebSocket:', error);
-            });
+        // Configurar intervalo para enviar datos cada 5 segundos
+        const intervalId = setInterval(sendDataToClient, 5000);
+
+        // Limpiar intervalo cuando el socket se cierra
+        ws.on('close', () => {
+            clearInterval(intervalId);
+            console.log('Cliente WebSocket desconectado');
         });
 
-        return wss;
-    }
+        ws.on('error', (error) => {
+            clearInterval(intervalId);
+            console.error('Error en conexión WebSocket:', error);
+        });
+    });
+
+    return wss;
 }
 
 // Inicialización del servidor
